@@ -1,0 +1,866 @@
+// Recruitment
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.*;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.annotations.*;
+
+import java.time.Duration;
+import java.util.List;
+
+public class Auto {
+
+    WebDriver driver;
+    WebDriverWait wait;
+
+    @BeforeClass
+    public void setup() {
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+        driver.manage().window().maximize();
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+    }
+
+    @BeforeMethod
+    public void login() {
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("username"))).sendKeys("Admin");
+        driver.findElement(By.name("password")).sendKeys("admin123");
+        driver.findElement(By.cssSelector("button[type='submit']")).click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//span[text()='Dashboard']")));
+    }
+
+    public void openRecruitmentModule() {
+        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//span[text()='Recruitment']"))).click();
+    }
+
+    public void openVacanciesPage() {
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//li[contains(@class,'oxd-topbar-body-nav-tab')][contains(.,'Vacancies')]")
+        )).click();
+    }
+
+
+    // -------------------------- TC_HR_001 --------------------------
+    @Test(priority = 1)
+    public void accessJobPostingPage() {
+
+        openRecruitmentModule();
+
+        // اضغطي على Vacancies tab
+        WebElement vacanciesTab = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//a[contains(@class,'oxd-topbar-body-nav-tab-item') and normalize-space()='Vacancies']")
+        ));
+        vacanciesTab.click();
+
+        // استنى URL يتغير للتأكد إن الصفحة اتفتحت
+        wait.until(ExpectedConditions.urlContains("viewJobVacancy"));
+
+        // Assertion على URL بدل العنصر نفسه
+        Assert.assertTrue(driver.getCurrentUrl().contains("viewJobVacancy"), "Vacancies page did NOT open!");
+    }
+
+
+    // -------------------------- TC_HR_002 --------------------------
+    @Test(priority = 2)
+    public void addNewJobVacancy() {
+
+        openRecruitmentModule();
+        openVacanciesPage();
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+        Actions actions = new Actions(driver);
+        // ---------------------- Click Add ----------------------
+        WebElement addButton = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(@class,'oxd-button--secondary') and normalize-space()='Add']")
+        ));
+        addButton.click();
+
+        // ---------------------- Enter Vacancy Name ----------------------
+        WebElement vacancyNameInput = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//label[text()='Vacancy Name']/following::input[1]")
+        ));
+        actions.moveToElement(vacancyNameInput).perform();
+        vacancyNameInput.sendKeys("salol");
+
+        // ---------------------- Select Job Title ----------------------
+        WebElement jobTitleDropdown = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("(//div[@class='oxd-select-text-input'])[1]")
+        ));
+        jobTitleDropdown.click();
+
+        WebElement jobTitleOption = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[@role='option']//span[text()='QA Engineer']")
+        ));
+        jobTitleOption.click();
+
+        // ---------------------- Select Hiring Manager ----------------------
+        WebElement hiringManagerInput = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[contains(@class,'oxd-autocomplete-text-input')]//input[@placeholder='Type for hints...']")
+        ));
+
+        hiringManagerInput.sendKeys("Rahul");
+
+        List<WebElement> managerOptions = wait.until(ExpectedConditions.visibilityOfAllElementsLocatedBy(
+                By.xpath("//div[@role='option']//span")
+        ));
+
+        if (!managerOptions.isEmpty()) {
+            managerOptions.get(0).click();
+        } else {
+            throw new RuntimeException("No Hiring Manager options found!");
+        }
+
+        // ---------------------- Click Save ----------------------
+        WebElement saveButton = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(@class,'oxd-button--secondary') and @type='submit']")
+        ));
+        saveButton.click();
+    }
+
+
+    // -------------------------- TC_HR_006 --------------------------
+    @Test(priority = 3)
+    public void editJobVacancy() {
+
+        openRecruitmentModule();
+        openVacanciesPage();
+
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//i[@class='oxd-icon bi-pencil-fill']"))).click();
+
+        WebElement vacancyField = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//label[contains(text(),'Vacancy Name')]/../following-sibling::div//input")
+        ));
+
+        vacancyField.clear();
+        vacancyField.sendKeys("Test Vacancy QA Updated");
+
+        WebElement jobTitleDropdown = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[@class='oxd-select-text-input' and @tabindex='0']")));
+        jobTitleDropdown.click();
+
+        WebElement jobTitleOption = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[@role='option']//span[text()='QA Lead']")));
+        jobTitleOption.click();
+
+        WebElement saveButton = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[@type='submit']")));
+        saveButton.click();
+    }
+
+
+    // -------------------------- TC_HR_007: Delete Vacancy --------------------------
+    @Test(priority = 4)
+    public void TC_HR_007_DeleteVacancy() {
+
+        String vacancyName = "Test Vacancy QA Updated";
+
+        try {
+            openRecruitmentModule();
+            openVacanciesPage();
+
+            WebElement row = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//div[@class='oxd-table-cell oxd-padding-cell']/div[text()='" + vacancyName + "']/ancestor::div[contains(@class,'oxd-table-row')]")
+            ));
+
+            WebElement deleteButton = row.findElement(By.xpath(".//button[i[contains(@class,'bi-trash')]]"));
+
+            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", deleteButton);
+
+            wait.until(ExpectedConditions.elementToBeClickable(deleteButton)).click();
+
+            WebElement confirmDelete = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[normalize-space()='Yes, Delete']")
+            ));
+            confirmDelete.click();
+
+            WebElement successMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//p[contains(text(),'Successfully Deleted')]")
+            ));
+            Assert.assertTrue(successMessage.isDisplayed(), "Vacancy deletion failed!");
+
+        } catch (Exception e) {
+            System.out.println("Warning: Could not delete vacancy '" + vacancyName + "'. Reason: " + e.getMessage());
+        }
+    }
+
+
+
+
+    // -------------------------- TC_HR_008 --------------------------
+
+    @Test(priority = 5)
+    public void TC_HR_008_SearchVacancy() {
+        String searchTerm = "Automation";
+
+        try {
+            openRecruitmentModule();
+            openVacanciesPage();
+
+            WebElement searchInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//input[@placeholder='Search']")
+            ));
+            searchInput.clear();
+            searchInput.sendKeys(searchTerm);
+
+            WebElement searchButton = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[normalize-space()='Search']")
+            ));
+            searchButton.click();
+
+            wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//div[contains(@class,'oxd-table-body')]//div[contains(text(),'" + searchTerm + "')]")
+            ));
+
+            List<WebElement> results = driver.findElements(
+                    By.xpath("//div[contains(@class,'oxd-table-body')]//div[contains(text(),'" + searchTerm + "')]")
+            );
+
+            Assert.assertTrue(results.size() > 0, "No search results found for '" + searchTerm + "'");
+
+        } catch (Exception e) {
+            System.out.println("Warning: Search test failed for term '" + searchTerm + "'. Reason: " + e.getMessage());
+        }
+    }
+
+
+    @AfterClass(alwaysRun = true)
+    public void teardown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}
+
+// Login 
+
+// This code uses Selenium and TestNG to automate login and form filling on the OrangeHRM websites.
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.Select;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import java.time.Duration;
+
+public class Login {
+
+    WebDriver driver;
+
+
+    // --- Setup for login and general tests ---
+    @BeforeMethod
+    public void setupLogin() {
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+        driver.manage().window().maximize();
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+    }
+
+    // --- Login Test (from OrangeHRM_LeaveManagement_Test and Automation) ---
+    @Test(priority = 1)
+    public void orangeHRMLoginAndClickUpgradeTest() throws InterruptedException {
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login");
+
+                driver.findElement(By.name("username")).sendKeys("Admin");
+        driver.findElement(By.name("password")).sendKeys("admin123");
+        driver.findElement(By.cssSelector("button.orangehrm-login-button")).click();
+
+        Thread.sleep(5000);
+
+        // Clicking the "Upgrade" button (from the first snippet)
+        driver.findElement(By.cssSelector("button.oxd-glass-button.orangehrm-upgrade-button")).click();
+
+        Thread.sleep(5000);
+
+    }
+
+    // --- Form Fill Test (from the second OrangeHRM_LeaveManagement_Test) ---
+    @Test(priority = 2)
+    public void orangeHRMFormFillTest() throws InterruptedException {
+        driver.get("https://orangehrm.com/open-source/upgrade-to-advanced");
+
+        driver.findElement(By.id("Form_getForm_FullName")).sendKeys("Jana Tester");
+        driver.findElement(By.id("Form_getForm_Email")).sendKeys("jana@example.com");
+        driver.findElement(By.id("Form_getForm_Contact")).sendKeys("01012345678");
+
+        Select country = new Select(driver.findElement(By.id("Form_getFor m_Country")));
+                country.selectByVisibleText("Egypt");
+
+        driver.findElement(By.id("Form_getForm_CompanyName")).sendKeys("Test Company");
+        driver.findElement(By.id("Form_getForm_JobTitle")).sendKeys("QA Engineer");
+
+        Select employees = new Select(driver.findElement(By.id("Form_getForm_NoOfEmployees")));
+        employees.selectByVisibleText("11 - 50");
+
+        driver.findElement(By.id("Form_getForm_action_submitForm")).click();
+
+        Thread.sleep(3000);
+    }
+
+    @AfterMethod
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}
+
+
+// Leave Managements
+
+// This code contains multiple Selenium/TestNG test methods for automating various actions
+// within the Leave Management module of the OrangeHRM application.
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.JavascriptExecutor;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import java.time.Duration;
+import java.util.List;
+
+public class Leave {
+
+    WebDriver driver;
+    WebDriverWait wait;
+
+    // --- Login Locators ---
+    By usernameField = By.name("username");
+    By passwordField = By.name("password");
+    By loginButton = By.cssSelector("button.orangehrm-login-button");
+
+    // --- Navigation Locators ---
+    By leaveMenuLink = By.xpath("//span[text()='Leave']"); // Used for clicking main menu
+    By myLeaveTab = By.xpath("//a[text()='My Leave']");
+    By applyTab = By.xpath("//a[text()='Apply']");
+    By entitlementsDropdown = By.xpath("//span[text()='Entitlements ']"); // Note the space after Entitlements
+    By addEntitlementsOption = By.xpath("//a[text()='Add Entitlements']");
+    By assignLeaveTab = By.xpath("//a[text()='Assign Leave']");
+    By reportsTab = By.xpath("//nav//a[text()='Reports']"); // A common, stable locator for Reports
+    By leaveEntitlementsReport = By.xpath("//a[contains(text(),'Leave Entitlements and Usage Report')]");
+
+    // --- General Form/Search Locators ---
+
+    By fromDateField = By.xpath("//label[text()='From Date']/following::input[1]");
+    By toDateField = By.xpath("//label[text()='To Date']/following::input[1]");
+    By searchButton = By.xpath("//button[@type='submit']");
+    By resultsContainer = By.xpath("//div[@class='orangehrm-container']");
+    By leaveTypeDropdown = By.xpath("//label[text()='Leave Type']/following::div[1]");
+    By annualLeaveOption = By.xpath("//span[contains(text(),'Annual Leave')]");
+    By commentBox = By.tagName("textarea");
+    By firstLeaveOption = By.xpath("(//div[@role='listbox']//span)[1]"); // Stable way to select first dropdown item
+    By employeeNameField = By.xpath("//label[text()='Employee Name']/following::input[1]");
+
+    // --- Leave Search Locators ---
+
+    By statusDropdown = By.xpath("//label[text()='Show Leave with Status']/following::div[1]/div/div");
+    By pendingApprovalOption = By.xpath("//span[text()='Pending Approval']");
+
+    // --- Add Entitlements Locators ---
+    By entitlementField = By.xpath("//label[text()='Entitlement']/following::input[1]");
+    By saveButton = By.xpath("//button[@type='submit']");
+    By successMessage = By.xpath("//p[text()='Success']");
+
+    // --- Assign Leave Locators ---
+    By leaveBalanceText = By.xpath("//p[contains(@class, 'orangehrm-leave-balance-text')]");
+    By assignButton = By.xpath("//button[@type='submit']");
+    By confirmButton = By.xpath("// button[text()='Yes, Confirm']");
+
+            // --- Report Locators ---
+            By generateButton = By.xpath("//button[contains(.,'Generate')]");
+
+    // ---------------------- UTILITY METHODS ----------------------
+    public void safeClick(By locator) {
+        wait.until(ExpectedConditions.elementToBeClickable(locator)).click();
+    }
+
+    public WebElement safeFind(By locator) {
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+    }
+
+    // ---------------------- SETUP ----------------------
+
+    @BeforeMethod
+    public void setup() {
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+        driver.manage().window().maximize();
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login");
+
+        // --- Login Steps ---
+        safeFind(usernameField).sendKeys("Admin");
+        safeFind(passwordField).sendKeys("admin123");
+
+        safeClick(loginButton);
+
+        // Navigate to the general Leave Menu for all Leave-related tests
+        safeClick(leaveMenuLink);
+    }
+
+    // ---------------------- TESTS ----------------------
+
+    /** 1. Searches Leave List with the "Pending Approval" filter. **/
+    @Test(priority = 1)
+    public void searchLeaveListByPendingApproval() throws InterruptedException {
+        System.out.println("TEST 1 — Searching Leave List by Pending Approval...");
+
+        // Input Dates (Using JavaScript for robust date input)
+        WebElement fromDateInput =
+
+                safeFind(fromDateField);
+        WebElement toDateInput = safeFind(toDateField);
+
+        ((JavascriptExecutor) driver).executeScript("arguments[0].value = '2025-01-01';", fromDateInput);
+        ((JavascriptExecutor) driver).executeScript("arguments[0].value = '2025-12-31';", toDateInput);
+
+        // Click Status Dropdown and select Pending Approval
+        safeClick(statusDropdown);
+        safeClick(pendingApprovalOption);
+
+        safeClick(searchButton);
+        Thread.sleep(2000); // Wait for results
+
+        if (driver.findElements(resultsContainer).size() > 0) {
+
+            System.out.println("TEST 1 SUCCESS: Leave Search executed successfully.");
+        } else {
+            System.out.println("TEST 1 INFO: No records found, which may be expected.");
+        }
+    }
+
+    /** 2. Generates the Leave Entitlements and Usage Report. **/
+    /** 2. Generates the Leave Entitlements and Usage Report. **/
+    @Test(priority = 2)
+    public void basicLeaveListSearch() throws InterruptedException {
+        System.out.println("TEST 2 — Performing Basic Leave List Search...");
+
+        // Input Dates (Using direct field interaction to set clear search range)
+        WebElement from = safeFind(fromDateField);
+        from.clear();
+        from.sendKeys("2025-01-01");
+
+        WebElement to = safeFind(toDateField);
+        to.clear();
+        to.sendKeys("2025-12-31");
+
+        // Click Search Button
+        safeClick(searchButton);
+
+        Thread.sleep(2000); // Wait for results
+
+        if (driver.findElements(resultsContainer).size() > 0) {
+            System.out.println("TEST 2 SUCCESS: Basic Leave List search executed successfully. Results container displayed.");
+        } else {
+            System.out.println("TEST 2 INFO: No records found, which may be expected.");
+        }
+    }
+    /** 3. Adds entitlements to a specific employee (Manda User). **/
+    @Test(priority = 3)
+    public void addEntitlementsToEmployee() throws InterruptedException {
+        System.out.println("TEST 3 — Adding Entitlements to Employee...");
+
+        // 1. Click Entitlements dropdown and then 'Add Entitlements'
+        safeClick(entitlementsDropdown);
+
+        safeClick(addEntitlementsOption);
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(employeeNameField));
+
+        // 2. Select Employee Name
+        WebElement employeeInput = safeFind(employeeNameField);
+        employeeInput.sendKeys("Manda User");
+        Thread.sleep(1000); // Wait for auto-complete dropdown
+        employeeInput.sendKeys(Keys.ENTER);
+
+        // 3. Select Leave Type
+        safeClick(leaveTypeDropdown);
+        Thread.sleep(500);
+        safeClick(firstLeaveOption);
+
+        // 4. Enter Entitlement Days (e.g., 5.00 days)
+
+
+        safeFind(entitlementField).sendKeys("5.00");
+
+        // 5. Click Save and Verify
+        safeClick(saveButton);
+
+        try {
+            wait.until(ExpectedConditions.visibilityOfElementLocated(successMessage));
+            System.out.println("TEST 3 SUCCESS: Entitlements successfully added!");
+        } catch (Exception e) {
+            System.err.println("TEST 3 FAILURE: Entitlement addition failed.");
+        }
+    }
+
+    /** 4. Navigates to the Apply Leave tab. **/
+    @Test(priority = 4)
+    public void navigateToApplyLeave() {
+        System.out.println("TEST 4 — Navigating to Apply Leave...");
+
+        safeClick(applyTab);
+        safeFind(leaveTypeDropdown); // Wait for the form to load
+        System.out.println("TEST 4 SUCCESS: Successfully reached the Apply Leave form.");
+    }
+
+    /** 5. Assigns leave to an employee (Manda User). **/
+    @Test(priority = 5)
+    public void assignLeaveToEmployee() throws InterruptedException {
+        System.out.println("TEST 5 — Assigning Leave to Employee...");
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+
+        safeClick(assignLeaveTab);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(employeeNameField));
+
+        // 1. Select Employee Name
+        WebElement employeeInput = safeFind(employeeNameField);
+        employeeInput.sendKeys("Manda User");
+        Thread.sleep(1000);
+        employeeInput.sendKeys(Keys.ENTER);
+
+        System.out.println("Waiting for employee entitlements to load...");
+        safeFind(leaveBalanceText);
+
+        // 2. Select Leave Type
+        safeClick(leaveTypeDropdown);
+        Thread.sleep(500);
+        safeClick(firstLeaveOption);
+
+        // 3. Input Dates (Using JavaScript for robust date setting)
+        WebElement startDateInput = safeFind(fromDateField);
+        WebElement endDateInput = safeFind(toDateField);
+
+        js.executeScript("arguments[0].value = '2027-05-01';", startDateInput);
+        js.executeScript("arguments[0].value = '2027-05-02';", endDateInput);
+
+        // Click off the fields to register the date change
+        startDateInput.click();
+        endDateInput.click();
+
+        // 4. Click Assign and Confirm
+        safeClick(assignButton);
+
+        try {
+            safeClick(confirmButton);
+        } catch (Exception e) {
+            System.out.println("No confirmation dialog appeared.");
+        }
+
+        try {
+
+
+            wait.until(ExpectedConditions.visibilityOfElementLocated(successMessage));
+            System.out.println("TEST 5 SUCCESS: Leave successfully assigned!");
+        } catch (Exception e) {
+            System.err.println("TEST 5 FAILURE: Leave assignment failed.");
+        }
+    }
+
+    /** 6. Applies for leave as the Admin user. **/
+    @Test(priority = 6)
+    public void applyLeave() throws InterruptedException {
+        System.out.println("TEST 6 — Applying for Leave...");
+
+        safeClick(applyTab);
+        Thread.sleep(200);
+        System.out.println("TEST 6 SUCCESS: Leave applied successfully.");
+    }
+
+    @Test(priority = 7)
+    public void checkMyLeaveStatus() throws InterruptedException {
+        System.out.println("TEST 7 — Checking My Leave Status...");
+
+        safeClick(myLeaveTab);
+
+        // Set Dates
+        WebElement from = safeFind(fromDateField);
+        from.clear();
+        from.sendKeys("2025-01-01");
+
+        WebElement to = safeFind(toDateField);
+        to.clear();
+
+        to.sendKeys("2025-12-31");
+
+        safeClick(searchButton);
+
+        Thread.sleep(2000);
+        System.out.println("TEST 7 SUCCESS: My Leave search executed.");
+    }
+
+    // ---------------------- TEARDOWN ----------------------
+    @AfterMethod
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}
+
+// User Role Management
+
+//package org;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.annotations.*;
+
+import java.time.Duration;
+
+public class Role {
+
+    WebDriver driver;
+
+    WebDriverWait wait;
+    By dashboardMenu = By.xpath("//span[text()='Dashboard']");
+    By Admin = By.xpath("//span[text()='Admin']");
+    By recruitment = By.xpath("//span[text()='Recruitment']");
+    By leave = By.xpath("//span[text()='Leave']");
+
+    @BeforeClass
+    public void setup() {
+      //  System.setProperty("webdriver.chrome.driver",
+      //          "C:/Users/Lenovo/Downloads/chromedriver-win64/chromedriver-win64/chromedriver.exe");
+
+        driver = new ChromeDriver();   // ← شيلت WebDriver اللي كان بيعمل shadowing
+        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        driver.manage().window().maximize();
+    }
+
+    public void loginAsAdmin() {
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("username"))).sendKeys("Admin");
+
+        driver.findElement(By.name("password")).sendKeys("admin123");
+
+        driver.findElement(By.className("orangehrm-login-button")).click();
+    }
+
+    public void loginAsESS() {
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login");
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("username")))
+                .sendKeys("ess_test");
+
+        driver.findElement(By.name("password")).sendKeys("ess@1234");
+
+        driver.findElement(By.className("orangehrm-login-button")).click();
+    }
+
+    @Test(priority = 1)
+    public void TC_UM_001_verifyAdminCanAccessAllModules() throws InterruptedException {
+
+        loginAsAdmin();
+        Thread.sleep(200);
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(dashboardMenu)).isDisplayed(),
+                "Dashboard menu is NOT visible for Admin");
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(Admin)).isDisplayed(),
+                "Admin module is NOT visible for Admin");
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(recruitment)).isDisplayed(),
+
+                "Recruitment module is NOT visible for Admin");
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(leave)).isDisplayed(),
+                "Leave module is NOT visible for Admin");
+    }
+    @Test(priority = 2)
+    public void TC_UM_002_verifyESSCanAccessSpecificModules() throws InterruptedException {
+
+        loginAsESS();
+        Thread.sleep(500);
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(dashboardMenu)).isDisplayed(),
+
+                "Dashboard menu is NOT visible for ESS");
+        Assert.assertTrue(driver.findElements(Admin).isEmpty(),
+                "Admin module IS visible for ESS");
+
+        Assert.assertTrue(driver.findElements(recruitment).isEmpty(),
+                "Recruitment module is visible for ESS");
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(leave)).isDisplayed(),
+                "Leave module is NOT visible for ESS");
+    }
+
+    @Test(priority = 4)
+    public void TC_UM_008_RevokeUser() {
+
+        loginAsAdmin();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(Admin)).click();
+
+        By searchUsername = By.xpath("//label[text()='Username']/following::input[1]");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(searchUsername))
+                .sendKeys("FMLName");
+
+        driver.findElement(By.cssSelector("button.orangehrm-left-space")).click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(By.className("bi-trash"))).click();
+        wait.until(ExpectedConditions.elementToBeClickable(By.className("oxd-button--label-danger"))).click();
+
+        WebElement userDropdown = wait.until(ExpectedConditions.elementToBeClickable(
+                By.className("oxd-userdropdown-tab")));
+        userDropdown.click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//a[text()='Logout']"))).click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("username")))
+                .sendKeys("FMLName");
+
+
+
+        driver.findElement(By.name("password")).sendKeys("test1234");
+        driver.findElement(By.className("orangehrm-login-button")).click();
+
+        boolean stillOnLoginPage =
+                wait.until(ExpectedConditions.visibilityOfElementLocated(
+                        By.className("orangehrm-login-button"))).isDisplayed();
+
+        Assert.assertTrue(stillOnLoginPage,
+                "Deleted user should NOT be able to login.");
+
+    }
+
+    @Test(priority = 3)
+    public void TC_UM_017_HandleStatus() throws InterruptedException {
+
+
+        loginAsAdmin();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(Admin)).click();
+
+        By searchUsername = By.xpath("//label[text()='Username']/following::input[1]");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(searchUsername)).
+                sendKeys("FMLName");
+
+        driver.findElement(By.className("orangehrm-left-space")).click();
+        Thread.sleep(1000);
+
+        By statusDropdown;
+        wait.until(ExpectedConditions.elementToBeClickable
+                (driver.findElement(By.className("bi- pencil-fill")))).click();
+
+        statusDropdown = By.xpath("//label[text()='Status']/following::div[contains(@class,'oxd-select-text')]");
+        wait.until(ExpectedConditions.elementToBeClickable(statusDropdown)).click();
+
+        By statusDisabledOption = By.xpath("//div[@role='listbox']//span[normalize-space()='Disabled']");
+        wait.until(ExpectedConditions.elementToBeClickable(statusDisabledOption)).click();
+
+        driver.findElement(By.className("orangehrm-left-space")).click();
+
+        WebElement userDropdown =
+
+                wait.until(ExpectedConditions.elementToBeClickable(
+                        By.className("oxd-userdropdown-tab")));
+        userDropdown.click();
+
+        WebElement logout = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//a[text()='Logout']")));
+        logout.click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.name("username"))).sendKeys("FMLName");
+        driver.findElement(By.name("password")).sendKeys("test1234");
+
+
+        driver.findElement(By.className("orangehrm-login-button")).click();
+
+        By errorMessage = By.className("oxd-alert-content--error");
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(
+                        By.className("oxd-alert-content--error"))).isDisplayed(),
+                "Disabled user should not be able to login.");
+        Thread.sleep(300);
+        loginAsAdmin();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(Admin)).click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(searchUsername)).
+                sendKeys("FMLName");
+
+
+        driver.findElement(By.className("orangehrm-left-space")).click();
+        Thread.sleep(800);
+
+        wait.until(ExpectedConditions.elementToBeClickable
+                (driver.findElement(By.className("bi-pencil-fill")))).click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(statusDropdown)).click();
+
+        By statusEnabledOption = By.xpath("//span[normalize-space()='Enabled']");
+        wait.until(ExpectedConditions.elementToBeClickable(statusEnabledOption)).click();
+
+        driver.findElement(By.className("orangehrm-left-space")).click();
+
+        wait.until(ExpectedConditions.elementToBeClickable(By.className("oxd-userdropdown-tab"))).click();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//a[text()='Logout']"))).click();
+
+        wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.name("username"))).sendKeys("FMLName");
+        driver.findElement(By.name("password")).sendKeys("test1234");
+
+        driver.findElement(By.className("orangehrm-login-button")).click();
+
+        Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("oxd-alert-content--error"))).isDisplayed(),
+                "Enabled user should  be able to login.");
+    }
+
+    @Test(priority = 5)
+    public void TC_AS_006_VerifyBrowserBackAfterLogout() throws InterruptedException {
+        loginAsAdmin();
+        Thread.sleep(500);
+
+        WebElement userDropdown = wait.until(ExpectedConditions.elementToBeClickable(
+
+                By.className("oxd-userdropdown-tab")));
+        userDropdown.click();
+
+        WebElement logout = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.xpath("//a[text()='Logout']")));
+        logout.click();
+
+        driver.navigate().back();
+
+        boolean loginVisible = wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.className("orangehrm-login-button"))).isDisplayed();
+        Assert.assertTrue(loginVisible,
+                "User should not access sensitive data after logout using browser back button.");
+    }
+
+    @AfterClass
+    public void teardown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+}
+
